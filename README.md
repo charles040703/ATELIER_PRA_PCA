@@ -231,28 +231,69 @@ Faites preuve de pédagogie et soyez clair dans vos explications et procedures d
 **Exercice 1 :**  
 Quels sont les composants dont la perte entraîne une perte de données ?  
   
-*..Répondez à cet exercice ici..*
+La perte des composants suivants entraîne une perte définitive de données :
+
+Le volume de données applicatif (PVC pra-data et le PV associé) : c’est là que réside la base SQLite utilisée en production par le pod Flask.
+
+Le volume de sauvegarde (PVC pra-backup et son PV) : il contient les fichiers de backup générés par le CronJob sqlite-backup. Si ce volume est perdu, on perd tous les points de restauration.
+
+Le fichier de base de données lui‑même (le fichier .db SQLite à l’intérieur de ces volumes) : s’il est supprimé ou corrompu, les données correspondantes sont perdues.
 
 **Exercice 2 :**  
 Expliquez nous pourquoi nous n'avons pas perdu les données lors de la supression du PVC pra-data  
   
-*..Répondez à cet exercice ici..*
+Dans le scénario de l’atelier, la base SQLite est sauvegardée régulièrement par un CronJob (sqlite-backup) qui copie le fichier de base de données depuis le volume pra-data vers un volume de sauvegarde séparé, pra-backup.
+
+Lorsque nous avons supprimé le PVC pra-data, nous avons effectivement supprimé le volume de travail de l’application, mais le volume de sauvegarde pra-backup n’a pas été supprimé : il contenait toujours une copie du fichier SQLite correspondant à la dernière sauvegarde.
 
 **Exercice 3 :**  
 Quels sont les RTO et RPO de cette solution ?  
   
-*..Répondez à cet exercice ici..*
+Le RTO (Recovery Time Objective) correspond au temps maximal acceptable pour rétablir le service après un incident (durée d’indisponibilité tolérée).
+
+Le RPO (Recovery Point Objective) correspond à la quantité maximale de données qu’on accepte de perdre, c’est‑à‑dire l’« âge » des données au moment de la dernière sauvegarde disponible.
+
 
 **Exercice 4 :**  
 Pourquoi cette solution (cet atelier) ne peux pas être utilisé dans un vrai environnement de production ? Que manque-t-il ?   
   
-*..Répondez à cet exercice ici..*
-  
+Pas de redondance ni de haute disponibilité
+
+Une seule base SQLite, un seul volume de données, pas de réplication ni de cluster de base de données.
+
+En production, on attend souvent une base type PostgreSQL/MySQL en cluster, avec réplication et bascule automatique (HA) pour minimiser les interruptions.
+
+Sauvegardes locales et non externalisées
+
+Les backups sont stockés sur un PVC dans le même cluster et probablement sur la même infrastructure de stockage.
+
+En production, on doit externaliser les sauvegardes (autre datacenter, autre cloud, stockage objet type S3, etc.) pour résister à une perte complète du cluster ou du site.
+
+Pas de sauvegarde de l’état complet de la plateforme
+
+Seule la base applicative est sauvegardée (SQLite).
+
+En PRA Kubernetes, il faut aussi prévoir la sauvegarde de l’état du cluster (etcd), des manifests, Secrets, ConfigMaps, etc.
+
+Pas de sécurité avancée autour des sauvegardes
+
+Pas de chiffrement des sauvegardes, pas de gestion stricte des accès, pas de rotation et de politique de rétention complète.
+
+En production, les backups doivent être protégés (chiffrement, contrôle d’accès, immutable backups) pour résister aux attaques (ex : ransomware) et aux erreurs humaines.
+
+Pas de supervision ni de tests réguliers du PRA
+
+On ne dispose pas d’outils de monitoring, d’alertes en cas d’échec de backup, ni de procédures de test automatisé de restauration.
+
+Un vrai PRA/PCA inclut des tests réguliers, de la supervision et des procédures documentées et validées avec les équipes métier.
+
+Pas de prise en compte des exigences métier complètes
+
+L’atelier illustre la technique, mais ne formalise pas les RTO/RPO contractuels, ni les organisations (cellule de crise, communication, responsabilités).  
 **Exercice 5 :**  
 Proposez une archtecture plus robuste.   
   
-*..Répondez à cet exercice ici..*
-
+On peut concevoir une architecture plus robuste en combinant plusieurs niveaux de protection : base de données en haute disponibilité, sauvegardes externalisées, et redondance de clusters Kubernetes.
 ---------------------------------------------------
 Séquence 6 : Ateliers  
 Difficulté : Moyenne (~2 heures)
